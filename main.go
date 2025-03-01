@@ -1,7 +1,7 @@
 package main
 
-const SCALE float64 = 10000 / 1
-const FRAMES int = 500 * 4
+const SCALE float64 = 10000
+const FRAMES int = 500 * 3
 const POINTS_TO_DRAW int = 5000
 
 func main() {

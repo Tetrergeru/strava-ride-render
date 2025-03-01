@@ -8,6 +8,10 @@ import (
 	"log"
 	"math"
 	"os"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 )
 
 type Renderer struct {
@@ -46,10 +50,11 @@ func (r *Renderer) RenderPoints(points iter.Seq[[2]int], totalPoints int) {
 		if totalPoints > POINTS_TO_DRAW {
 			c = lightestColor
 		} else {
-			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), lightestColor, RGB(0, 0, 0))
+			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), RGB(0, 0, 0), lightestColor)
 		}
 
-		r.RenderPoint(p, c)
+		// r.RenderPoint(p, c)
+		r.RenderSquare(p, c, 3)
 		totalPoints--
 	}
 }
@@ -70,6 +75,38 @@ func (r *Renderer) SaveImage(fname string) error {
 
 func (r *Renderer) RenderPoint(p [2]int, cl color.RGBA) {
 	r.image.Set(p[0], p[1], cl)
+}
+
+func (r *Renderer) RenderSquare(p [2]int, cl color.RGBA, radius int) {
+	for x := Max(p[0]-radius, 0); x <= Min(p[0]+radius, r.width-1); x++ {
+		for y := Max(p[1]-radius, 0); y <= Min(p[1]+radius, r.height-1); y++ {
+			dx := math.Abs(float64(x - p[0]))
+			dy := math.Abs(float64(y - p[1]))
+
+			dist := Clamp((dx+dy)/float64(radius), 0, 1)
+
+			oldCl := r.Get(x, y)
+			r.image.Set(x, y, LerpRGBA(dist, cl, oldCl))
+		}
+	}
+}
+
+func (r *Renderer) Get(x, y int) color.RGBA {
+	R, G, B, A := r.image.At(x, y).RGBA()
+	return RGBA(byte(R), byte(G), byte(B), byte(A))
+}
+
+func (r *Renderer) RenderText(x, y int, label string) {
+	col := color.RGBA{200, 100, 0, 255}
+	point := fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
+
+	d := &font.Drawer{
+		Dst:  r.image,
+		Src:  image.NewUniform(col),
+		Face: basicfont.Face7x13,
+		Dot:  point,
+	}
+	d.DrawString(label)
 }
 
 // ========= LEGACY =========

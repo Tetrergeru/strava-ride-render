@@ -85,8 +85,17 @@ func MapsToImage() {
 	fmt.Printf("dx = %v, dy = %v\n", height, width)
 
 	allPoints := make([][2]float64, 0)
-	for _, m := range maps {
-		allPoints = append(allPoints, m.LatLng...)
+	rideIndices := make([]int, 0)
+	for idx, m := range r.Models {
+		mp, ok := maps[m.Id]
+		if !ok {
+			continue
+		}
+
+		allPoints = append(allPoints, mp.LatLng...)
+		for _ = range mp.LatLng {
+			rideIndices = append(rideIndices, idx)
+		}
 	}
 
 	pPerFrame := len(allPoints) / FRAMES
@@ -98,11 +107,11 @@ func MapsToImage() {
 	for thread := range 10 {
 		go func() {
 			for i := thread; i < FRAMES; i += 10 {
-				r := NewRenderer(width, height)
-				totalPoint := i * pPerFrame
+				renderer := NewRenderer(width, height)
+				totalPoints := i * pPerFrame
 
-				r.RenderPoints(func(yield func([2]int) bool) {
-					for _, p := range allPoints[0 : i*pPerFrame] {
+				renderer.RenderPoints(func(yield func([2]int) bool) {
+					for _, p := range allPoints[0:totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
 						y := Max(int((p[0]-min[0])*SCALE), 0)
 						x := Max(int((p[1]-min[1])*SCALE), 0)
 
@@ -110,9 +119,12 @@ func MapsToImage() {
 							return
 						}
 					}
-				}, totalPoint)
+				}, totalPoints) //-Max(0, totalPoints-POINTS_TO_DRAW)
 
-				err := r.SaveImage(fmt.Sprintf("frames/%06d.png", i))
+				ride := r.Models[rideIndices[i*pPerFrame]]
+				renderer.RenderText(width-30, 10, ride.Name)
+
+				err := renderer.SaveImage(fmt.Sprintf("frames/%06d.png", i))
 
 				if err != nil {
 					log.Fatalf("Failed to save image: %s", err.Error())
