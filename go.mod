@@ -1,4 +1,4 @@
-module biking
+module github.com/Tetrergeru/strava-ride-render
 
 go 1.23.5
 
