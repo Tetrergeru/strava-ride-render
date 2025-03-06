@@ -1,8 +1,10 @@
 package main
 
 import (
+	"image"
 	"image/color"
 	"math"
+	"os"
 
 	"golang.org/x/exp/constraints"
 )
@@ -83,4 +85,16 @@ func SphereDist2(a [2]float64, b [2]float64) float64 {
 	h := h0 + math.Cos(b[0])*math.Cos(a[0])*h1
 	d := 2 * math.Asin(math.Sqrt(h))
 	return d * 6356752 //6378137 //
+}
+
+func OpenImageFile(fname string) (image.Image, error) {
+	f, err := os.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	return img, err
 }

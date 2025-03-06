@@ -78,11 +78,12 @@ func MapsToImage() {
 
 	fmt.Printf("Have %d/%d rides\n", len(maps), len(r.Models))
 
-	height := int((max[0] - min[0]) * SCALE)
-	width := int((max[1] - min[1]) * SCALE * 0.5)
+	width, height := project(max, min, math.MaxInt, math.MaxInt, true)
+	// height := int((max[0] - min[0]) * SCALE)
+	// width := int((max[1] - min[1]) * SCALE * 0.5)
 
 	fmt.Printf("max = %v, min = %v\n", max, min)
-	fmt.Printf("dx = %v, dy = %v\n", height, width)
+	fmt.Printf("height = %v, width = %v\n", height, width)
 
 	allPoints := make([][2]float64, 0)
 	rideIndices := make([]int, 0)
@@ -101,28 +102,36 @@ func MapsToImage() {
 	pPerFrame := len(allPoints) / FRAMES
 	fmt.Printf("points per frame = %v\n", pPerFrame)
 
-	renderMode := "matrix"
+	background, err := OpenImageFile("maps_layers.png")
+	if err != nil {
+		log.Fatalf("Failed to open backgound image: %v", err)
+	}
+	fmt.Printf("background.height = %v, background.width = %v\n", background.Bounds().Max.Y, background.Bounds().Max.X)
+
+	renderMode := "path"
 	if renderMode == "path" {
 		wg := sync.WaitGroup{}
 		wg.Add(10)
 		for thread := range 10 {
 			go func() {
 				for i := thread; i < FRAMES; i += 10 {
-					renderer := NewRenderer(width, height)
+					// renderer := NewRenderer(width, height)
+					renderer := NewRendererFromImage(background)
+
 					totalPoints := i * pPerFrame
 
 					renderer.RenderPoints(func(yield func([2]int) bool) {
-						for _, p := range allPoints[0:totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
+						for _, p := range allPoints[Max(0, totalPoints-POINTS_TO_DRAW):totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
 							// y := Max(int((p[0]-min[0])*SCALE), 0)
 							// x := Max(int((p[1]-min[1])*SCALE*0.5), 0)
 
-							x, y := project(p, min, width, height)
+							x, y := project(p, min, width, height, false)
 
-							if !yield([2]int{x, y}) {
+							if !yield([2]int{50 + x, 50 + height - y}) {
 								return
 							}
 						}
-					}, totalPoints) //-Max(0, totalPoints-POINTS_TO_DRAW)
+					}, totalPoints-Max(0, totalPoints-POINTS_TO_DRAW)) //-Max(0, totalPoints-POINTS_TO_DRAW)
 
 					ride := r.Models[rideIndices[i*pPerFrame]]
 					renderer.RenderText(width-30, 10, ride.Name)
@@ -143,20 +152,40 @@ func MapsToImage() {
 		matrix := MakeMatrix(height, width)
 
 		for _, p := range allPoints {
-			x, y := project(p, min, width, height)
+			x, y := project(p, min, width, height, false)
 
-			matrix[x][y] += 1
+			matrix[x][height-y] += 1
 		}
 
-		renderer := NewRenderer(width, height)
+		// renderer := NewRenderer(width, height)
+		renderer := NewRendererFromImage(background)
 		renderer.RenderMatrix(matrix)
 		renderer.SaveImage("matrix_render.png")
 	}
 }
 
-func project(p, min [2]float64, w, h int) (int, int) {
-	n_y := h - Clamp(int((p[0]-min[0])*SCALE), 0, h)
-	n_x := Clamp(int((p[1]-min[1])*SCALE*0.5), 0, w)
+func project(p, min [2]float64, w, h int, debug bool) (int, int) {
+	n_x := Clamp(int((p[1]-min[1])*SCALE), 0, w)
+
+	y_rad := math.Pi * p[0] / 180.0
+	y_proj := math.Atanh(math.Sin(y_rad))
+
+	y_min_rad := math.Pi * min[0] / 180.0
+	y_min_proj := math.Atanh(math.Sin(y_min_rad))
+
+	n_y := Clamp(int((y_proj-y_min_proj)*SCALE*180/math.Pi), 0, h)
+
+	if debug {
+		fmt.Printf("y = %v\n", p[0])
+		fmt.Printf("y_rad = %v\n", y_rad)
+		fmt.Printf("y_proj = %v\n", y_proj)
+
+		fmt.Printf("min_y = %v\n", min[0])
+		fmt.Printf("y_min_rad = %v\n", y_min_rad)
+		fmt.Printf("y_min_proj = %v\n", y_min_proj)
+
+		fmt.Printf("n_y = %v\n", n_y)
+	}
 
 	return n_x, n_y
 }

@@ -42,15 +42,34 @@ func NewRenderer(w, h int) *Renderer {
 	}
 }
 
+func NewRendererFromImage(img image.Image) *Renderer {
+	width := img.Bounds().Max.X
+	height := img.Bounds().Max.Y
+
+	canvas := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	for i := range width {
+		for j := range height {
+			canvas.Set(i, j, img.At(i, j))
+		}
+	}
+
+	return &Renderer{
+		width:  width,
+		height: height,
+		image:  canvas,
+	}
+}
+
 func (r *Renderer) RenderPoints(points iter.Seq[[2]int], totalPoints int) {
-	lightestColor := RGB(230, 230, 230)
+	lightestColor := RGBA(0, 0, 0, 0)
 
 	for p := range points {
 		var c color.RGBA
 		if totalPoints > POINTS_TO_DRAW {
 			c = lightestColor
 		} else {
-			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), RGB(0, 0, 0), lightestColor)
+			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), RGBA(0, 0, 0, 255), lightestColor)
 		}
 
 		// r.RenderPoint(p, c)
@@ -63,14 +82,14 @@ func (r *Renderer) RenderMatrix(matrix [][]int) {
 	points := make([][3]int, 0)
 
 	maxRides := 0
-	for i := range r.width {
-		for j := range r.height {
+	for i, el := range matrix {
+		for j := range el {
 			maxRides = Max(maxRides, matrix[i][j])
 
 			if matrix[i][j] != 0 {
 				points = append(
 					points,
-					[3]int{i, j, matrix[i][j]},
+					[3]int{i + 50, j + 50, matrix[i][j]},
 				)
 			}
 		}
@@ -83,8 +102,8 @@ func (r *Renderer) RenderMatrix(matrix [][]int) {
 	for _, p := range points {
 		cl := RidesToColor(float64(p[2]), float64(maxRides))
 
-		// r.RenderSquare([2]int{p[0], p[1]}, cl, 2)
-		r.RenderPoint([2]int{p[0], p[1]}, cl)
+		r.RenderSquare([2]int{p[0], p[1]}, cl, 2)
+		// r.RenderPoint([2]int{p[0], p[1]}, cl)
 	}
 }
 
@@ -117,8 +136,9 @@ func (r *Renderer) RenderSquare(p [2]int, cl color.RGBA, radius int) {
 
 			dist := Clamp((math.Sqrt(dx+dy))/float64(radius), 0, 1)
 
+			newCl := RGBA(cl.R, cl.G, cl.B, 255)
 			oldCl := r.Get(x, y)
-			r.image.Set(x, y, LerpRGBA(dist, cl, oldCl))
+			r.image.Set(x, y, LerpRGBA((1.0-dist)*(float64(cl.A)/255.0), oldCl, newCl))
 		}
 	}
 }

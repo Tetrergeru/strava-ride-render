@@ -28,3 +28,6 @@ maps/
 frames/
 results/
 *.mp4
+
+*.kra~
+*.png~
