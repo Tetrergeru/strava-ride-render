@@ -5,9 +5,9 @@ import (
 	"image/color"
 	"image/png"
 	"iter"
-	"log"
 	"math"
 	"os"
+	"sort"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
@@ -59,6 +59,35 @@ func (r *Renderer) RenderPoints(points iter.Seq[[2]int], totalPoints int) {
 	}
 }
 
+func (r *Renderer) RenderMatrix(matrix [][]int) {
+	points := make([][3]int, 0)
+
+	maxRides := 0
+	for i := range r.width {
+		for j := range r.height {
+			maxRides = Max(maxRides, matrix[i][j])
+
+			if matrix[i][j] != 0 {
+				points = append(
+					points,
+					[3]int{i, j, matrix[i][j]},
+				)
+			}
+		}
+	}
+
+	sort.Slice(points, func(i, j int) bool {
+		return points[i][2] < points[j][2]
+	})
+
+	for _, p := range points {
+		cl := RidesToColor(float64(p[2]), float64(maxRides))
+
+		// r.RenderSquare([2]int{p[0], p[1]}, cl, 2)
+		r.RenderPoint([2]int{p[0], p[1]}, cl)
+	}
+}
+
 func (r *Renderer) SaveImage(fname string) error {
 	file, err := os.Create(fname)
 	if err != nil {
@@ -80,10 +109,13 @@ func (r *Renderer) RenderPoint(p [2]int, cl color.RGBA) {
 func (r *Renderer) RenderSquare(p [2]int, cl color.RGBA, radius int) {
 	for x := Max(p[0]-radius, 0); x <= Min(p[0]+radius, r.width-1); x++ {
 		for y := Max(p[1]-radius, 0); y <= Min(p[1]+radius, r.height-1); y++ {
-			dx := math.Abs(float64(x - p[0]))
-			dy := math.Abs(float64(y - p[1]))
+			dx := float64(x - p[0])
+			dy := float64(y - p[1])
 
-			dist := Clamp((dx+dy)/float64(radius), 0, 1)
+			dx *= dx
+			dy *= dy
+
+			dist := Clamp((math.Sqrt(dx+dy))/float64(radius), 0, 1)
 
 			oldCl := r.Get(x, y)
 			r.image.Set(x, y, LerpRGBA(dist, cl, oldCl))
@@ -109,90 +141,26 @@ func (r *Renderer) RenderText(x, y int, label string) {
 	d.DrawString(label)
 }
 
-// ========= LEGACY =========
+func RidesToColor(rides, maxRides float64) color.RGBA {
+	return RGBA(0, 0, 0, 255)
 
-func RidesToColorBW(rides, maxRides, dist float64) color.RGBA {
-	c := byte((255 - rides/maxRides*255.0) * dist)
-	return RGBA(c, c, c, 255)
-}
-
-func RidesToColor(rides, maxRides, dist float64) color.RGBA {
 	if rides < 1.0 {
 		return RGBA(255, 255, 255, 255)
 	}
-	const BORDER1 float64 = 5.0
+	const BORDER1 float64 = 50.0
 	if rides <= BORDER1 {
-		return LerpRGBA(rides/BORDER1, RGBA(177, 185, 220, 255), RGBA(21, 21, 88, 255))
+		return LerpRGBA(rides/BORDER1, RGBA(233, 236, 245, 255), RGBA(21, 21, 88, 255))
 	}
 	const BORDER2 float64 = 150.0
 	if rides <= BORDER2 {
-		return LerpRGBA((rides-BORDER1)/(BORDER2-BORDER1), RGBA(133, 51, 122, 255), RGBA(239, 159, 12, 255))
-	}
-	return RGBA(235, 70, 25, 255)
-	// 	v := Min(rides/BORDER, 1.0)
-	// 	v = math.Pow(v, 0.1)
-	// 	c := byte((1 - v) * 255)
-	// 	return color.RGBA{
-	// 		R: c,
-	// 		G: 255,
-	// 		B: 255,
-	// 		A: 255,
-	// 	}
-}
-
-func RenderMatrix(dx, dy int, matrix [][]int, fname string, cls func(rides, maxRides, dist float64) color.RGBA) {
-	if dy%2 == 0 {
-		dy += 1
-	}
-	if dx%2 == 0 {
-		dx += 1
-	}
-	img := image.NewRGBA(image.Rect(0, 0, dy+1, dx+1))
-
-	maxCount := 0
-	for j := range matrix {
-		for i := range matrix[j] {
-			maxCount = Max(maxCount, matrix[j][i])
-		}
+		return LerpRGBA((rides-BORDER1)/(BORDER2-BORDER1), RGBA(21, 21, 88, 255), RGBA(239, 159, 12, 255))
 	}
 
-	const radius = 2
+	// return RGBA(235, 70, 25, 255)
 
-	for j := range matrix {
-		for i := range matrix[j] {
-			if matrix[j][i] == 0 {
-				img.Set(j, dx+1-i, RGBA(255, 255, 255, 255))
-				continue
-			}
+	v := Min((rides-BORDER2)/50.0, 1.0)
+	// v = math.Pow(v, 0.5)
+	c := LerpRGBA(v, RGBA(239, 159, 12, 255), RGBA(235, 70, 25, 255))
 
-			for y := Max(j-radius, 0); y < Min(j+radius, dy); y++ {
-				for x := Max(i-radius, 0); x < Min(i+radius, dx); x++ {
-					dist := Lerp((math.Abs(float64(x-i))+math.Abs(float64(y-j)))/float64(radius), 0.5, 1.0)
-
-					c := cls(float64(matrix[j][i]), float64(maxCount), dist)
-
-					r, _, _, _ := img.At(y, dx+1-x).RGBA()
-
-					img.Set(y, dx+1-x, c)
-
-					if r == 255 {
-						img.Set(y, dx+1-x, c)
-					} else if r > uint32(c.R) {
-						img.Set(y, dx+1-x, c)
-					}
-				}
-			}
-
-		}
-	}
-
-	file, err := os.Create(fname)
-	if err != nil {
-		log.Fatalf("Error creating file: %v", err)
-	}
-	defer file.Close()
-
-	if err := png.Encode(file, img); err != nil {
-		log.Fatalf("Error encoding image: %v", err)
-	}
+	return c
 }

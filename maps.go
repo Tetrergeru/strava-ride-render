@@ -79,7 +79,7 @@ func MapsToImage() {
 	fmt.Printf("Have %d/%d rides\n", len(maps), len(r.Models))
 
 	height := int((max[0] - min[0]) * SCALE)
-	width := int((max[1] - min[1]) * SCALE)
+	width := int((max[1] - min[1]) * SCALE * 0.5)
 
 	fmt.Printf("max = %v, min = %v\n", max, min)
 	fmt.Printf("dx = %v, dy = %v\n", height, width)
@@ -101,55 +101,64 @@ func MapsToImage() {
 	pPerFrame := len(allPoints) / FRAMES
 	fmt.Printf("points per frame = %v\n", pPerFrame)
 
-	wg := sync.WaitGroup{}
-	wg.Add(10)
+	renderMode := "matrix"
+	if renderMode == "path" {
+		wg := sync.WaitGroup{}
+		wg.Add(10)
+		for thread := range 10 {
+			go func() {
+				for i := thread; i < FRAMES; i += 10 {
+					renderer := NewRenderer(width, height)
+					totalPoints := i * pPerFrame
 
-	for thread := range 10 {
-		go func() {
-			for i := thread; i < FRAMES; i += 10 {
-				renderer := NewRenderer(width, height)
-				totalPoints := i * pPerFrame
+					renderer.RenderPoints(func(yield func([2]int) bool) {
+						for _, p := range allPoints[0:totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
+							// y := Max(int((p[0]-min[0])*SCALE), 0)
+							// x := Max(int((p[1]-min[1])*SCALE*0.5), 0)
 
-				renderer.RenderPoints(func(yield func([2]int) bool) {
-					for _, p := range allPoints[0:totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
-						y := Max(int((p[0]-min[0])*SCALE), 0)
-						x := Max(int((p[1]-min[1])*SCALE), 0)
+							x, y := project(p, min, width, height)
 
-						if !yield([2]int{x, height - y}) {
-							return
+							if !yield([2]int{x, y}) {
+								return
+							}
 						}
+					}, totalPoints) //-Max(0, totalPoints-POINTS_TO_DRAW)
+
+					ride := r.Models[rideIndices[i*pPerFrame]]
+					renderer.RenderText(width-30, 10, ride.Name)
+
+					err := renderer.SaveImage(fmt.Sprintf("frames/%06d.png", i))
+
+					if err != nil {
+						log.Fatalf("Failed to save image: %s", err.Error())
 					}
-				}, totalPoints) //-Max(0, totalPoints-POINTS_TO_DRAW)
 
-				ride := r.Models[rideIndices[i*pPerFrame]]
-				renderer.RenderText(width-30, 10, ride.Name)
-
-				err := renderer.SaveImage(fmt.Sprintf("frames/%06d.png", i))
-
-				if err != nil {
-					log.Fatalf("Failed to save image: %s", err.Error())
+					fmt.Printf("Frame %d done\n", i)
 				}
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+	} else if renderMode == "matrix" {
+		matrix := MakeMatrix(height, width)
 
-				fmt.Printf("Frame %d done\n", i)
-			}
-			wg.Done()
-		}()
+		for _, p := range allPoints {
+			x, y := project(p, min, width, height)
+
+			matrix[x][y] += 1
+		}
+
+		renderer := NewRenderer(width, height)
+		renderer.RenderMatrix(matrix)
+		renderer.SaveImage("matrix_render.png")
 	}
-	wg.Wait()
+}
 
-	// count := 0
-	// matrix := MakeMatrix(dx, dy)
-	// for i, p := range allPoints {
+func project(p, min [2]float64, w, h int) (int, int) {
+	n_y := h - Clamp(int((p[0]-min[0])*SCALE), 0, h)
+	n_x := Clamp(int((p[1]-min[1])*SCALE*0.5), 0, w)
 
-	// 	x := Max(int((p[0]-min[0])*SCALE), 0)
-	// 	y := Max(int((p[1]-min[1])*SCALE), 0)
-	// 	matrix[y][x] += 1
-	// 	if i%pPerFrame == 0 {
-	// 		RenderMatrix(dx, dy, matrix, fmt.Sprintf("frames/%06d.png", count))
-	// 		fmt.Printf("Frame %d done\n", count)
-	// 		count++
-	// 	}
-	// }
+	return n_x, n_y
 }
 
 func ReadSortedResults() Result {

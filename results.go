@@ -55,8 +55,8 @@ func ConcatResults() {
 		Models: []Model{},
 	}
 
-	for i := 1; i <= 7; i++ {
-		r := ReadResult[Result](fmt.Sprintf("result_%v.json", i))
+	for i := 1; i <= 8; i++ {
+		r := ReadResult[Result](fmt.Sprintf("results/result_%v.json", i))
 
 		res.Models = append(res.Models, r.Models...)
 	}
