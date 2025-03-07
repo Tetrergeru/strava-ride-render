@@ -61,19 +61,20 @@ func NewRendererFromImage(img image.Image) *Renderer {
 	}
 }
 
-func (r *Renderer) RenderPoints(points iter.Seq[[2]int], totalPoints int) {
-	lightestColor := RGBA(0, 0, 0, 0)
+func (rend *Renderer) RenderPoints(points iter.Seq[[2]int], totalPoints int) {
+	b, g, r := byte(0), byte(0), byte(0)
+	lightestColor := RGBA(r, g, b, 0)
 
 	for p := range points {
 		var c color.RGBA
 		if totalPoints > POINTS_TO_DRAW {
 			c = lightestColor
 		} else {
-			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), RGBA(0, 0, 0, 255), lightestColor)
+			c = LerpRGBA(float64(totalPoints)/float64(POINTS_TO_DRAW), RGBA(r, g, b, 255), lightestColor)
 		}
 
 		// r.RenderPoint(p, c)
-		r.RenderSquare(p, c, 3)
+		rend.RenderSquare(p, c, 3)
 		totalPoints--
 	}
 }
@@ -174,7 +175,7 @@ func (r *Renderer) RenderText(x, y int, label string, f *opentype.Font) error {
 }
 
 func RidesToColor(rides, maxRides float64) color.RGBA {
-	return RGBA(0, 0, 0, 255)
+	return RGBA(255, 50, 0, 255)
 
 	if rides < 1.0 {
 		return RGBA(255, 255, 255, 255)

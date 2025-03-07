@@ -119,11 +119,21 @@ func MapsToImage() {
 		wg.Add(10)
 		for thread := range 10 {
 			go func() {
+				sumDist := 0.0
+				countedUntil := 1
 				for i := thread; i < FRAMES; i += 10 {
 					// renderer := NewRenderer(width, height)
 					renderer := NewRendererFromImage(background)
 
 					totalPoints := i * pPerFrame
+
+					for j := countedUntil; j < totalPoints; j++ {
+						dist := SphereDist2(allPoints[j-1], allPoints[j])
+						if dist < 10.0 {
+							sumDist += dist
+						}
+					}
+					countedUntil = totalPoints + 1
 
 					renderer.RenderPoints(func(yield func([2]int) bool) {
 						for _, p := range allPoints[Max(0, totalPoints-POINTS_TO_DRAW):totalPoints] { // Max(0, totalPoints-POINTS_TO_DRAW)
@@ -139,7 +149,8 @@ func MapsToImage() {
 					}, totalPoints-Max(0, totalPoints-POINTS_TO_DRAW)) //-Max(0, totalPoints-POINTS_TO_DRAW)
 
 					ride := r.Models[rideIndices[i*pPerFrame]]
-					renderer.RenderText(width-200, 100, fmt.Sprintf("Ride: %s", ride.Name), font)
+					renderer.RenderText(width-300, 100, fmt.Sprintf("Ride: %s", ride.Name), font)
+					renderer.RenderText(width-300, 200, fmt.Sprintf("Dist: %skm", FormatMetersDist(sumDist, 0)), font)
 
 					err := renderer.SaveImage(fmt.Sprintf("frames/%06d.png", i))
 
@@ -156,11 +167,37 @@ func MapsToImage() {
 	} else if renderMode == "matrix" {
 		matrix := MakeMatrix(height, width)
 
-		for _, p := range allPoints {
+		maxDist := -1.0
+		maxDist2 := -1.0
+		sumDist := 0.0
+		sumDist2 := 0.0
+		for i := range allPoints[1:] {
+			p := allPoints[i+1]
+			prevP := allPoints[i]
+
+			dist := SphereDist(p, prevP)
+			maxDist = Max(maxDist, dist)
+			sumDist += dist
+
+			dist2 := SphereDist2(p, prevP)
+			maxDist2 = Max(maxDist2, dist2)
+			// if dist2 < 10.0 {
+			sumDist2 += dist2
+			// }
+
+			// if math.Abs(dist2-dist) > 0.1 {
+			// 	fmt.Printf("|%v-%v| = %v > 0.1\n", dist2, dist, math.Abs(dist2-dist))
+			// }
+
 			x, y := project(p, min, width, height, false)
 
 			matrix[x][height-y] += 1
 		}
+
+		fmt.Printf("maxDist = %v\n", FormatMetersDist(maxDist, 3))
+		fmt.Printf("maxDist2 = %v\n", FormatMetersDist(maxDist2, 3))
+		fmt.Printf("sumDist = %v\n", FormatMetersDist(sumDist, 3))
+		fmt.Printf("sumDist2 = %v\n", FormatMetersDist(sumDist2, 3))
 
 		// renderer := NewRenderer(width, height)
 		renderer := NewRendererFromImage(background)

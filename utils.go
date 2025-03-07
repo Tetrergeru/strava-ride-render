@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"os"
+	"strconv"
 
 	"golang.org/x/exp/constraints"
 	"golang.org/x/image/font/opentype"
@@ -70,6 +72,8 @@ func SphereDist(a [2]float64, b [2]float64) float64 {
 
 	c2 := ca1 * cb1
 	d := c2*(sa0*sb0+ca0*cb0) + sa1*sb1
+	d = Min(d, 1)
+
 	return math.Acos(d) * 6356752 //6378137 //
 }
 
@@ -112,4 +116,14 @@ func LoadFont(fname string) (*opentype.Font, error) {
 	}
 
 	return font, nil
+}
+
+func FormatMetersDist(dist float64, digits int) string {
+	km := int(dist / 1000)
+
+	if digits == 0 {
+		return fmt.Sprintf("%d", km)
+	}
+
+	return strconv.FormatFloat(dist/1000, 'f', digits, 64)
 }
