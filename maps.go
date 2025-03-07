@@ -64,6 +64,11 @@ func MapsToImage() {
 	max := [2]float64{math.Inf(-1), math.Inf(-1)}
 	min := [2]float64{math.Inf(1), math.Inf(1)}
 
+	font, err := LoadFont("Montserrat-Regular.otf")
+	if err != nil {
+		log.Fatalf("Failed to load font: %v\n", err)
+	}
+
 	r := ReadSortedResults()
 	maps := ReadMaps(&r)
 
@@ -134,7 +139,7 @@ func MapsToImage() {
 					}, totalPoints-Max(0, totalPoints-POINTS_TO_DRAW)) //-Max(0, totalPoints-POINTS_TO_DRAW)
 
 					ride := r.Models[rideIndices[i*pPerFrame]]
-					renderer.RenderText(width-30, 10, ride.Name)
+					renderer.RenderText(width-200, 100, fmt.Sprintf("Ride: %s", ride.Name), font)
 
 					err := renderer.SaveImage(fmt.Sprintf("frames/%06d.png", i))
 

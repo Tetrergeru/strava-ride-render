@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -148,17 +148,29 @@ func (r *Renderer) Get(x, y int) color.RGBA {
 	return RGBA(byte(R), byte(G), byte(B), byte(A))
 }
 
-func (r *Renderer) RenderText(x, y int, label string) {
-	col := color.RGBA{200, 100, 0, 255}
+func (r *Renderer) RenderText(x, y int, label string, f *opentype.Font) error {
+	col := color.RGBA{0, 0, 0, 255}
 	point := fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
+
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    50,
+		DPI:     72,
+		Hinting: font.HintingNone,
+	})
+	if err != nil {
+		return err
+	}
 
 	d := &font.Drawer{
 		Dst:  r.image,
 		Src:  image.NewUniform(col),
-		Face: basicfont.Face7x13,
+		Face: face,
 		Dot:  point,
 	}
+
 	d.DrawString(label)
+
+	return nil
 }
 
 func RidesToColor(rides, maxRides float64) color.RGBA {

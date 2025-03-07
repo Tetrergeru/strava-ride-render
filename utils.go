@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"golang.org/x/exp/constraints"
+	"golang.org/x/image/font/opentype"
 )
 
 func Max[T constraints.Ordered](x, y T) T {
@@ -97,4 +98,18 @@ func OpenImageFile(fname string) (image.Image, error) {
 
 	img, _, err := image.Decode(f)
 	return img, err
+}
+
+func LoadFont(fname string) (*opentype.Font, error) {
+	fontBytes, err := os.ReadFile(fname)
+	if err != nil {
+		return nil, err
+	}
+
+	font, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return font, nil
 }
